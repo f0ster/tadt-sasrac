@@ -12,6 +12,8 @@ TADT-SASRec is a novel sequential recommendation model that addresses the limita
 - Incorporating dynamic routing through a Task-Aware Routing Controller
 - Providing efficient training with NVIDIA optimizations and Flash Attention support
 - Supporting mixed precision training with bfloat16 for improved performance
+- Comprehensive experiment tracking with MLflow
+- Custom CUDA kernels for optimized computation
 
 ## Features
 
@@ -20,8 +22,9 @@ TADT-SASRec is a novel sequential recommendation model that addresses the limita
 - **Dynamic Routing**: Task-aware information flow control
 - **NVIDIA Optimizations**: TF32 precision, cuDNN benchmarking, and gradient checkpointing
 - **Flash Attention Support**: Optional integration with Flash Attention for improved performance
+- **Custom CUDA Kernels**: Optimized implementations for key operations
 - **Memory Efficiency**: Gradient checkpointing and optimized architecture
-- **Comprehensive Analysis**: Built-in tools for model analysis and visualization
+- **MLflow Integration**: Complete experiment tracking and visualization
 - **Modular Design**: Easy to extend and customize for different use cases
 
 ## Project Structure
@@ -34,18 +37,170 @@ tadt-sasrec/
 │   ├── tadt_rec.py      # Main TADTRec model
 │   ├── mrtb.py          # Multi-Resolution Transformer Block
 │   └── tarc.py          # Task-Aware Routing Controller
+├── kernels/             # Custom CUDA kernels
+│   ├── attention.cu     # Optimized attention kernels
+│   ├── routing.cu       # Dynamic routing kernels
+│   └── expert.cu        # Expert selection kernels
 ├── notebooks/            # Jupyter notebooks for analysis
 ├── src/                  # Source code
-│   ├── train.py         # Training script
+│   ├── train.py         # Training script with MLflow integration
 │   ├── evaluate.py      # Evaluation script
 │   └── utils/           # Utility modules
 │       ├── optimization.py  # NVIDIA optimizations
 │       ├── analysis.py  # Analysis utilities
 │       ├── visualization.py  # Visualization tools
-│       ├── recommendation.py # Recommendation utilities
-│       └── report.py    # Report generation
+│       └── recommendation.py # Recommendation utilities
 └── tests/               # Test suite
 ```
+
+## Custom Kernels and Optimizations
+
+### 1. Optimized Attention Kernels
+
+```ascii
+┌─────────────────────────────────────────────────────────┐
+│                     Input Sequence                       │
+└───────────────────────────────┬─────────────────────────┘
+                                │
+                                v
+┌─────────────────────────────────────────────────────────┐
+│                    Flash Attention                       │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐  │
+│  │   Query     │    │    Key      │    │   Value     │  │
+│  └──────┬──────┘    └──────┬──────┘    └──────┬──────┘  │
+│         │                  │                   │         │
+│         v                  v                   v         │
+│  ┌─────────────────────────────────────────────────────┐ │
+│  │                 Attention Matrix                     │ │
+│  └──────────────────────────┬──────────────────────────┘ │
+│                             │                            │
+│                             v                            │
+│  ┌─────────────────────────────────────────────────────┐ │
+│  │                 Output Projection                    │ │
+│  └─────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────┘
+```
+
+Key optimizations:
+- Block-wise computation for memory efficiency
+- Shared memory caching for frequently accessed data
+- Warp-level parallelism for matrix operations
+- Fused operations to reduce memory bandwidth
+
+### 2. Dynamic Routing Kernels
+
+```ascii
+┌─────────────────────────────────────────────────────────┐
+│                     Input Features                       │
+└───────────────────────────────┬─────────────────────────┘
+                                │
+                                v
+┌─────────────────────────────────────────────────────────┐
+│                    Routing Controller                    │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐  │
+│  │  Feature    │    │  Attention  │    │   Gating    │  │
+│  │  Projection │    │   Weights   │    │   Network   │  │
+│  └──────┬──────┘    └──────┬──────┘    └──────┬──────┘  │
+│         │                  │                   │         │
+│         v                  v                   v         │
+│  ┌─────────────────────────────────────────────────────┐ │
+│  │                 Expert Selection                     │ │
+│  └──────────────────────────┬──────────────────────────┘ │
+│                             │                            │
+│                             v                            │
+│  ┌─────────────────────────────────────────────────────┐ │
+│  │                 Output Routing                       │ │
+│  └─────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────┘
+```
+
+Optimizations:
+- Parallel expert selection using warp-level primitives
+- Efficient top-k selection with shared memory
+- Fused operations for routing computation
+- Memory-efficient expert representation
+
+### 3. Performance Optimizations
+
+1. **Memory Access Patterns**:
+```python
+# Coalesced memory access
+__global__ void optimized_kernel(float* input, float* output) {
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+    
+    for (int i = tid; i < N; i += stride) {
+        // Coalesced memory access
+        output[i] = input[i] * 2.0f;
+    }
+}
+```
+
+2. **Shared Memory Usage**:
+```python
+# Shared memory caching
+__global__ void shared_memory_kernel(float* input, float* output) {
+    __shared__ float shared_data[BLOCK_SIZE];
+    int tid = threadIdx.x;
+    
+    // Load data into shared memory
+    shared_data[tid] = input[blockIdx.x * blockDim.x + tid];
+    __syncthreads();
+    
+    // Process data from shared memory
+    output[blockIdx.x * blockDim.x + tid] = shared_data[tid] * 2.0f;
+}
+```
+
+3. **Warp-Level Operations**:
+```python
+# Warp-level primitives
+__global__ void warp_ops_kernel(float* input, float* output) {
+    int tid = threadIdx.x;
+    int warp_id = tid / 32;
+    int lane_id = tid % 32;
+    
+    // Warp-level reduction
+    float val = input[tid];
+    for (int offset = 16; offset > 0; offset /= 2) {
+        val += __shfl_down_sync(0xffffffff, val, offset);
+    }
+    
+    if (lane_id == 0) {
+        output[warp_id] = val;
+    }
+}
+```
+
+### 4. Mixed Precision Training
+
+```ascii
+┌─────────────────────────────────────────────────────────┐
+│                     Forward Pass                         │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐  │
+│  │  bfloat16   │    │  bfloat16   │    │  bfloat16   │  │
+│  │  Input      │    │  Weights    │    │  Output     │  │
+│  └──────┬──────┘    └──────┬──────┘    └──────┬──────┘  │
+│         │                  │                   │         │
+│         v                  v                   v         │
+│  ┌─────────────────────────────────────────────────────┐ │
+│  │                 Accumulation                         │ │
+│  │                 (float32)                           │ │
+│  └──────────────────────────┬──────────────────────────┘ │
+│                             │                            │
+│                             v                            │
+│  ┌─────────────────────────────────────────────────────┐ │
+│  │                 Backward Pass                        │ │
+│  │                 (float32)                           │ │
+│  └─────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────┘
+```
+
+Key features:
+- bfloat16 for forward pass
+- float32 for accumulation and backward pass
+- Automatic mixed precision (AMP) support
+- Gradient scaling for stability
 
 ## Installation
 
@@ -77,8 +232,41 @@ The training script automatically:
 - Sets up NVIDIA optimizations
 - Configures mixed precision training
 - Enables Flash Attention if available
-- Sets up MLflow logging
-- Configures learning rate scheduling with warmup
+- Sets up MLflow logging with:
+  - Model parameters and hyperparameters
+  - Training metrics and validation scores
+  - System metrics (GPU utilization, memory usage)
+  - Model checkpoints and artifacts
+  - Learning rate schedules
+  - Training configuration
+
+### MLflow Tracking
+
+The project uses MLflow for comprehensive experiment tracking:
+
+1. **View Experiments**:
+```bash
+mlflow ui
+```
+
+2. **Tracked Metrics**:
+- Training loss and validation metrics
+- Model performance (Hit Rate, NDCG, Recall)
+- System metrics (GPU utilization, memory)
+- Learning rate schedules
+- Training time and efficiency
+
+3. **Artifacts**:
+- Model checkpoints
+- Training configurations
+- Evaluation results
+- Performance plots
+
+4. **Parameters**:
+- Model architecture
+- Training hyperparameters
+- Optimization settings
+- Data preprocessing parameters
 
 ### Evaluation
 
@@ -193,27 +381,6 @@ The project includes comprehensive analysis tools:
 - Diversity analysis
 - Fairness evaluation
 - Visualization tools
-
-## Report Generation
-
-Generate comprehensive reports using the ReportGenerator:
-
-```python
-from src.utils.report import ReportGenerator
-
-# Initialize report generator
-report_generator = ReportGenerator("reports", model, "tadt_rec")
-
-# Generate reports
-model_report = report_generator.generate_model_report(input_shape)
-training_report = report_generator.generate_training_report(train_metrics)
-recommendation_report = report_generator.generate_recommendation_report(
-    user_sequences, ground_truth
-)
-
-# Generate summary
-summary_path = report_generator.generate_summary_report()
-```
 
 ## Performance
 
