@@ -1,0 +1,8 @@
+tadt: true
+d: 128
+K: 6
+lambda_: 0.0002
+max_len: 40
+batch_size: 512
+epochs: 5
+lr: 0.001 

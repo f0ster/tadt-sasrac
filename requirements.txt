@@ -1,0 +1,33 @@
+# core
+torch>=2.0.0
+torchvision>=0.15.0
+torchaudio
+torchtext
+
+# project deps
+pytorch-lightning>=2.0.0
+pandas>=2.0.0
+numpy>=1.24.0
+networkx
+scikit-learn>=1.3.0
+tqdm>=4.65.0
+thop
+sentencepiece
+
+# performance enhancements
+flash-attn>=2.5.0
+xformers>=0.0.23
+triton>=2.1.0
+bitsandbytes>=0.41.1
+accelerate>=0.25.0
+
+# visualization and notebooks
+matplotlib
+seaborn
+jupyter
+notebook
+torchviz
+
+# Experiment tracking and management
+mlflow>=2.8.0
+python-dotenv>=1.0.0

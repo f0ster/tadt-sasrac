@@ -1,0 +1,63 @@
+# Model Configuration
+model:
+  name: "TADTRec"  # or "SASRec"
+  d: 128           # embedding dimension
+  K: 6             # number of MRTB blocks
+  max_len: 40      # maximum sequence length
+  dropout: 0.1     # dropout rate
+  lambda_: 0.1     # regularization coefficient
+
+# Training Configuration
+training:
+  batch_size: 256
+  epochs: 100
+  lr: 1e-3
+  weight_decay: 0.01
+  gradient_clip_val: 1.0
+  accumulate_grad_batches: 1
+  early_stopping_patience: 5
+  seed: 42
+
+# Data Configuration
+data:
+  train_path: "data/processed/fb_walks.npz"
+  val_path: "data/processed/fb_walks_val.npz"
+  test_path: "data/processed/fb_walks_test.npz"
+  num_workers: 4
+  pin_memory: true
+
+# Optimization Configuration
+optimization:
+  mixed_precision: true
+  gradient_accumulation: true
+  gradient_checkpointing: false
+  cudnn_benchmark: true
+  deterministic: false
+
+# Logging Configuration
+logging:
+  log_every_n_steps: 50
+  save_top_k: 3
+  monitor: "train_loss"
+  mode: "min"
+  tensorboard: true
+  wandb: false
+  wandb_project: "tadt-sasrec"
+  wandb_entity: null
+
+# Hardware Configuration
+hardware:
+  accelerator: "gpu"
+  devices: 1
+  precision: "16-mixed"
+  strategy: "ddp"  # or "dp" for single GPU
+
+# Evaluation Configuration
+evaluation:
+  metrics:
+    - "ndcg"
+    - "recall"
+    - "hit_rate"
+  k_values: [5, 10, 20]
+  num_samples: 1000
+  num_workers: 4 

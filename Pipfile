@@ -1,0 +1,22 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+torch = "*"
+torchvision = "*"
+torchaudio = "*"
+torchtext = "*"
+pytorch-lightning = "*"
+pandas = "*"
+numpy = "*"
+networkx = "*"
+scikit-learn = "*"
+tqdm = "*"
+thop = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.13"
